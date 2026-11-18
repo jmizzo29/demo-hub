@@ -9,7 +9,7 @@ const steps = [
   "Check how it was built on the Architecture page",
 ];
 
-export function HubHome() {
+export function HubHome({ isAdmin = false }: { isAdmin?: boolean }) {
   return (
     <div className="min-h-dvh bg-soft">
       <header className="sticky top-0 z-10 border-b border-line bg-white/95 backdrop-blur">
@@ -27,6 +27,14 @@ export function HubHome() {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+{isAdmin ? (
+                <a
+                  href="/admin"
+                  className="inline-flex h-10 items-center rounded-lg px-2 text-sm font-semibold text-muted hover:bg-soft hover:text-ink sm:px-3"
+                >
+                  Access
+                </a>
+              ) : null}
               <a
                 href="https://johndavidmitchell.vercel.app"
                 target="_blank"

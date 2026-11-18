@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import QRCode from "react-qr-code";
 import { Mark } from "@/components/mark";
 import { SampleLabel } from "@/components/sample-label";
-import { markPreviewSignedIn } from "@/lib/preview";
+import { authClient } from "@/lib/auth-client";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type Step = "identify" | "mfa" | "request" | "sent";
+type Step = "identify" | "mfa" | "enroll" | "request" | "sent";
 type Method = "email" | "google";
 
 const principles = [
@@ -17,7 +19,7 @@ const principles = [
   },
   {
     title: "Second factor",
-    body: "Every visit confirms an authenticator code or a passkey.",
+    body: "Every visit confirms a code from an authenticator app.",
   },
   {
     title: "No public browsing",
@@ -26,9 +28,12 @@ const principles = [
 ];
 
 export function SignInFlow() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>("identify");
   const [method, setMethod] = useState<Method>("email");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [googleEnabled, setGoogleEnabled] = useState(false);
   const [name, setName] = useState("");
   const [requestEmail, setRequestEmail] = useState("");
   const [note, setNote] = useState("");
@@ -39,31 +44,87 @@ export function SignInFlow() {
     headingRef.current?.focus();
   }, [step]);
 
-  function enterHub() {
-    markPreviewSignedIn();
-    // Full navigation so the server sees the preview cookie on the next document.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- cookie must be on the document request
-    window.location.assign("/hub");
-  }
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const accessDenied = params.get("error") === "access";
+    const enrollRequested = params.get("enroll") === "1";
+    const mfaRequested = params.get("mfa") === "1";
+    let cancelled = false;
+    void (async () => {
+      const response = await fetch("/api/gate");
+      const data = (await response.json()) as {
+        state: "ready" | "enroll" | "mfa" | "signed-out";
+        email?: string;
+        google?: boolean;
+      };
+      if (cancelled) return;
+      if (accessDenied) {
+        setError(
+          "This email does not have access yet. Request access and wait for approval.",
+        );
+      }
+      setGoogleEnabled(Boolean(data.google));
+      if (data.email) setEmail(data.email);
+      if (data.state === "ready") {
+        router.push("/hub");
+        return;
+      }
+      if (data.state === "enroll" || enrollRequested) setStep("enroll");
+      if (data.state === "mfa" || mfaRequested) setStep("mfa");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
-  function submitEmail(event: React.FormEvent<HTMLFormElement>) {
+  async function submitEmail(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!EMAIL_PATTERN.test(email.trim())) {
       setError("Enter the email on your approved access.");
       return;
     }
+    if (password.length < 8) {
+      setError("Use a password of at least 8 characters.");
+      return;
+    }
     setError("");
     setMethod("email");
-    setStep("mfa");
+    const response = await fetch("/api/sign-in", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: email.trim(), password }),
+    });
+    const data = (await response.json()) as { error?: string; step?: "mfa" | "enroll" };
+    if (!response.ok) {
+      setError(data.error || "Sign-in failed.");
+      return;
+    }
+    setStep(data.step === "mfa" ? "mfa" : "enroll");
   }
 
-  function continueWithGoogle() {
+  async function continueWithGoogle() {
+    if (!googleEnabled) {
+      setError("Google sign-in is not set up yet.");
+      return;
+    }
     setError("");
     setMethod("google");
-    setStep("mfa");
+    await authClient.signIn.social({
+      provider: "google",
+      callbackURL: "/hub",
+    });
   }
 
-  function submitRequest(event: React.FormEvent<HTMLFormElement>) {
+  async function confirmCode(code: string) {
+    const result = await authClient.twoFactor.verifyTotp({ code });
+    if (result.error) {
+      setError("That code is not valid. Try the current code from your authenticator.");
+      return;
+    }
+    router.push("/hub");
+  }
+
+  async function submitRequest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (name.trim().length < 2) {
       setError("Enter your name.");
@@ -74,6 +135,20 @@ export function SignInFlow() {
       return;
     }
     setError("");
+    const response = await fetch("/api/access-request", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: name.trim(),
+        email: requestEmail.trim(),
+        note,
+      }),
+    });
+    const data = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setError(data.error || "The request could not be saved.");
+      return;
+    }
     setStep("sent");
   }
 
@@ -158,10 +233,15 @@ export function SignInFlow() {
             {step === "identify" ? (
               <IdentifyStep
                 email={email}
+                password={password}
                 error={error}
                 headingRef={headingRef}
                 onEmailChange={(value) => {
                   setEmail(value);
+                  if (error) setError("");
+                }}
+                onPasswordChange={(value) => {
+                  setPassword(value);
                   if (error) setError("");
                 }}
                 onSubmitEmail={submitEmail}
@@ -176,12 +256,22 @@ export function SignInFlow() {
               <MfaStep
                 method={method}
                 email={email.trim()}
+                error={error}
                 headingRef={headingRef}
-                onConfirm={enterHub}
+                onConfirm={confirmCode}
                 onBack={() => {
                   setError("");
                   setStep("identify");
                 }}
+              />
+            ) : null}
+            {step === "enroll" ? (
+              <EnrollStep
+                password={password}
+                headingRef={headingRef}
+                error={error}
+                onError={setError}
+                onConfirm={confirmCode}
               />
             ) : null}
             {step === "request" ? (
@@ -228,22 +318,27 @@ export function SignInFlow() {
 
 function IdentifyStep({
   email,
+  password,
   error,
   headingRef,
   onEmailChange,
+  onPasswordChange,
   onSubmitEmail,
   onGoogle,
   onRequest,
 }: {
   email: string;
+  password: string;
   error: string;
   headingRef: React.RefObject<HTMLHeadingElement | null>;
   onEmailChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
   onSubmitEmail: (event: React.FormEvent<HTMLFormElement>) => void;
   onGoogle: () => void;
   onRequest: () => void;
 }) {
   const emailId = useId();
+  const passwordId = useId();
   const errorId = useId();
 
   return (
@@ -276,6 +371,24 @@ function IdentifyStep({
             aria-describedby={error ? errorId : undefined}
             className="h-12 rounded-xl border border-line bg-white px-3.5 text-base text-ink placeholder:text-muted/70"
           />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={passwordId} className="text-sm font-semibold text-ink">
+            Password
+          </label>
+          <input
+            id={passwordId}
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => onPasswordChange(event.target.value)}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
+            className="h-12 rounded-xl border border-line bg-white px-3.5 text-base text-ink"
+          />
+          <p className="text-xs leading-relaxed text-muted">
+            The first sign-in sets this password. After that, use it with your authenticator.
+          </p>
         </div>
         {error ? (
           <p id={errorId} role="alert" className="text-sm font-medium text-red-700">
@@ -312,9 +425,6 @@ function IdentifyStep({
           Request access
         </button>
       </p>
-      <p className="mt-6 text-xs leading-relaxed text-muted">
-        Visual preview. Sign-in is not checked yet.
-      </p>
     </>
   );
 }
@@ -322,14 +432,16 @@ function IdentifyStep({
 function MfaStep({
   method,
   email,
+  error,
   headingRef,
   onConfirm,
   onBack,
 }: {
   method: Method;
   email: string;
+  error: string;
   headingRef: React.RefObject<HTMLHeadingElement | null>;
-  onConfirm: () => void;
+  onConfirm: (code: string) => void;
   onBack: () => void;
 }) {
   return (
@@ -343,9 +455,14 @@ function MfaStep({
       </h1>
       <p className="mt-3 text-base leading-relaxed text-muted">
         {method === "google" ? "Continuing with Google." : `${email}.`} Confirm
-        with the code from your authenticator, or use a passkey.
+        with the code from your authenticator.
       </p>
       <AuthenticatorForm onConfirm={onConfirm} />
+      {error ? (
+        <p role="alert" className="mt-3 text-sm font-medium text-red-700">
+          {error}
+        </p>
+      ) : null}
       <div className="my-5 flex items-center gap-3 text-xs font-semibold tracking-wide text-muted uppercase">
         <span className="h-px flex-1 bg-line" />
         or
@@ -353,11 +470,12 @@ function MfaStep({
       </div>
       <button
         type="button"
-        onClick={onConfirm}
-        className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-line bg-white text-sm font-semibold text-ink hover:bg-soft"
+        disabled
+        className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-line bg-white text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:text-muted"
       >
         <PasskeyIcon />
         Use a passkey
+        <span className="text-xs font-medium">Coming soon</span>
       </button>
       <button
         type="button"
@@ -366,14 +484,11 @@ function MfaStep({
       >
         Back
       </button>
-      <p className="mt-6 text-xs leading-relaxed text-muted">
-        Visual preview. The code and passkey are not verified yet.
-      </p>
     </>
   );
 }
 
-function AuthenticatorForm({ onConfirm }: { onConfirm: () => void }) {
+function AuthenticatorForm({ onConfirm }: { onConfirm: (code: string) => void }) {
   const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const inputs = useRef<Array<HTMLInputElement | null>>([]);
   const groupId = useId();
@@ -409,7 +524,7 @@ function AuthenticatorForm({ onConfirm }: { onConfirm: () => void }) {
       className="mt-8"
       onSubmit={(event) => {
         event.preventDefault();
-        if (complete) onConfirm();
+        if (complete) onConfirm(digits.join(""));
       }}
     >
       <label id={groupId} className="text-sm font-semibold text-ink">
@@ -557,9 +672,139 @@ function RequestStep({
       >
         Back to sign in
       </button>
-      <p className="mt-6 text-xs leading-relaxed text-muted">
-        Visual preview. Requests are not sent yet.
+    </>
+  );
+}
+
+function EnrollStep({
+  password,
+  headingRef,
+  error,
+  onError,
+  onConfirm,
+}: {
+  password: string;
+  headingRef: React.RefObject<HTMLHeadingElement | null>;
+  error: string;
+  onError: (message: string) => void;
+  onConfirm: (code: string) => void;
+}) {
+  const [totpUri, setTotpUri] = useState("");
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [savedPassword, setSavedPassword] = useState(password);
+
+  useEffect(() => {
+    if (!savedPassword) return;
+    let cancelled = false;
+    void (async () => {
+      const enabled = await authClient.twoFactor.enable({ password: savedPassword });
+      if (cancelled) return;
+      if (enabled.data && "totpURI" in enabled.data && enabled.data.totpURI) {
+        setTotpUri(enabled.data.totpURI);
+        setBackupCodes(enabled.data.backupCodes ?? []);
+        return;
+      }
+      const existing = await authClient.twoFactor.getTotpUri({ password: savedPassword });
+      if (cancelled) return;
+      if (existing.data?.totpURI) {
+        setTotpUri(existing.data.totpURI);
+        return;
+      }
+      onError(enabled.error?.message || "The authenticator could not be set up.");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [onError, savedPassword]);
+
+  if (!savedPassword) {
+    return (
+      <form
+        className="space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const field = new FormData(event.currentTarget).get("password");
+          const value = String(field ?? "");
+          if (value.length < 8) {
+            onError("Enter the password for this email.");
+            return;
+          }
+          onError("");
+          setSavedPassword(value);
+        }}
+      >
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-3xl font-extrabold tracking-tight text-ink outline-none"
+        >
+          Set up your authenticator
+        </h1>
+        <p className="mt-3 text-base leading-relaxed text-muted">
+          Enter the password for this email to start the authenticator setup.
+        </p>
+        <label htmlFor="enroll-password" className="mt-6 block text-sm font-semibold text-ink">
+          Password
+        </label>
+        <input
+          id="enroll-password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          className="mt-1.5 h-12 w-full rounded-xl border border-line bg-white px-3.5 text-base text-ink"
+        />
+        {error ? (
+          <p role="alert" className="text-sm font-medium text-red-700">
+            {error}
+          </p>
+        ) : null}
+        <button
+          type="submit"
+          className="h-12 w-full rounded-xl bg-ink text-sm font-semibold text-white hover:bg-ink-2"
+        >
+          Continue
+        </button>
+      </form>
+    );
+  }
+
+  const secret = new URL(totpUri || "otpauth://totp/setup").searchParams.get("secret");
+
+  return (
+    <>
+      <h1
+        ref={headingRef}
+        tabIndex={-1}
+        className="text-3xl font-extrabold tracking-tight text-ink outline-none"
+      >
+        Set up your authenticator
+      </h1>
+      <p className="mt-3 text-base leading-relaxed text-muted">
+        Scan this with an authenticator app, then enter the 6-digit code. This
+        is required before the hub opens.
       </p>
+      {totpUri ? (
+        <div className="mt-6 flex justify-center rounded-2xl border border-line bg-white p-4">
+          <QRCode value={totpUri} size={168} />
+        </div>
+      ) : null}
+      {secret ? (
+        <p className="mt-3 break-all text-xs leading-relaxed text-muted">
+          Or enter this key manually: <span className="font-semibold text-ink">{secret}</span>
+        </p>
+      ) : null}
+      {backupCodes.length > 0 ? (
+        <p className="mt-3 text-xs leading-relaxed text-muted">
+          Save these backup codes. Each works once if you lose the app:{" "}
+          <span className="font-semibold text-ink">{backupCodes.join(", ")}</span>
+        </p>
+      ) : null}
+      <AuthenticatorForm onConfirm={onConfirm} />
+      {error ? (
+        <p role="alert" className="mt-3 text-sm font-medium text-red-700">
+          {error}
+        </p>
+      ) : null}
     </>
   );
 }
@@ -581,8 +826,7 @@ function SentStep({
         Request noted
       </h1>
       <p className="mt-3 text-base leading-relaxed text-muted">
-        When access is real, John reviews the request before you can sign in.
-        This preview did not send it.
+        John reviews the request before you can sign in.
       </p>
       <button
         type="button"

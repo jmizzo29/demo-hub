@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
+import { isAdminEmail } from "@/lib/access";
 import { HubHome } from "@/components/hub-home";
-import { Locked } from "@/components/locked";
-import { PREVIEW_COOKIE } from "@/lib/preview";
+import { requireSignedIn } from "@/lib/guard";
 
 export const instant = false;
 
@@ -13,7 +12,6 @@ export const metadata: Metadata = {
 };
 
 export default async function HubPage() {
-  const jar = await cookies();
-  const open = jar.get(PREVIEW_COOKIE)?.value === "1";
-  return open ? <HubHome /> : <Locked />;
+  const session = await requireSignedIn();
+  return <HubHome isAdmin={isAdminEmail(session.user.email)} />;
 }
