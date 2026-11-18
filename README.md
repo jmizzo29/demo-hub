@@ -7,7 +7,7 @@ This is a resume you can demo: a locked hub of live integrations, data, cloud, i
 ## What is in this build
 
 - **Sign in (visual only).** Email or Google, then a second step: authenticator code or passkey. **Request access** is there for people who are not approved yet. There is no guest pass and no public catalog.
-- **Hub home.** John's name and title, a one-line intro, and nine demo cards. Each card has the problem, the skill it proves, a tech tag, and the status **Coming soon**.
+- **Hub home.** John's name and title, a one-line intro, a plain-English banner that says what the hub is, three short steps for how to use it, and nine demo cards. Each card has the problem, the skill it proves, a tech tag, and the status **Coming soon**.
 - **Every screen** is labeled **Demo - sample data only**.
 
 Opening `/hub` directly, without stepping through sign-in, shows a locked screen.

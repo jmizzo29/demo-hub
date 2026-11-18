@@ -3,6 +3,12 @@ import { Mark } from "@/components/mark";
 import { SampleLabel } from "@/components/sample-label";
 import { SignOutButton } from "@/components/sign-out-button";
 
+const steps = [
+  "Pick a demo card",
+  "See the problem it solves and run it",
+  "Check how it was built on the Architecture page",
+];
+
 export function HubHome() {
   return (
     <div className="min-h-dvh bg-soft">
@@ -51,6 +57,44 @@ export function HubHome() {
             agents.
           </p>
         </header>
+
+        <section className="mt-8 rounded-2xl bg-ink px-5 py-6 text-white sm:px-8 sm:py-8">
+          <h2 className="max-w-3xl text-2xl font-extrabold tracking-tight text-pretty sm:text-3xl">
+            John David Mitchell&apos;s demo portfolio: a resume you can click
+            through.
+          </h2>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[#d5deea] text-pretty sm:text-base">
+            Nine live demos of the work a Solutions Architect does: API
+            integrations, data pipelines, cloud, identity and access,
+            observability, AI, ML, and agents. Each one solves a real-world
+            business problem using sample data.
+          </p>
+          <p className="mt-4 text-sm text-[#c9d3e3]">
+            <span className="font-semibold text-white">Who this is for.</span>{" "}
+            Hiring managers, recruiters, and technical interviewers.
+          </p>
+        </section>
+
+        <section className="mt-4" aria-labelledby="how-to-use">
+          <h2 id="how-to-use" className="text-sm font-semibold text-ink">
+            How to use this hub
+          </h2>
+          <ol className="mt-3 grid gap-3 sm:grid-cols-3">
+            {steps.map((step, index) => (
+              <li
+                key={step}
+                className="flex items-start gap-3 rounded-2xl border border-line bg-white p-4"
+              >
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink text-sm font-bold text-white">
+                  {index + 1}
+                </span>
+                <p className="pt-1 text-sm font-semibold leading-snug text-ink text-pretty">
+                  {step}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </section>
 
         <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {demos.map((demo, index) => (
