@@ -3,6 +3,8 @@ export type Demo = {
   problem: string;
   proves: string;
   tag: string;
+  live?: boolean;
+  href?: string;
 };
 
 export const demos: Demo[] = [
@@ -12,6 +14,8 @@ export const demos: Demo[] = [
       "Two systems need to call each other and stay in sync when something changes.",
     proves: "API contracts, webhooks, and a reliable handoff.",
     tag: ".NET",
+    live: true,
+    href: "/hub/demos/api-webhook",
   },
   {
     title: "Cloud data pipeline",

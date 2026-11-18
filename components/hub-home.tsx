@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { demos } from "@/lib/demos";
 import { Mark } from "@/components/mark";
 import { SampleLabel } from "@/components/sample-label";
@@ -107,17 +108,31 @@ export function HubHome({ isAdmin = false }: { isAdmin?: boolean }) {
         <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {demos.map((demo, index) => (
             <li key={demo.title}>
-              <article className="flex h-full flex-col rounded-2xl border border-line bg-white p-5 shadow-sm transition-colors hover:border-[#c5d0e0]">
+              <article
+                className={`flex h-full flex-col rounded-2xl border border-line bg-white p-5 shadow-sm transition-colors hover:border-[#c5d0e0] ${demo.href ? "hover:border-accent" : ""}`}
+              >
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-bold tracking-[0.14em] text-accent">
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <span className="rounded-full border border-line bg-soft px-2.5 py-1 text-[11px] font-semibold tracking-wide text-muted">
-                    Coming soon
+                  <span
+                    className={
+                      demo.live
+                        ? "rounded-full bg-[#e3f6ec] px-2.5 py-1 text-[11px] font-semibold tracking-wide text-[#075c31]"
+                        : "rounded-full border border-line bg-soft px-2.5 py-1 text-[11px] font-semibold tracking-wide text-muted"
+                    }
+                  >
+                    {demo.live ? "Live" : "Coming soon"}
                   </span>
                 </div>
                 <h2 className="mt-4 text-lg font-bold tracking-tight text-ink text-pretty">
-                  {demo.title}
+                  {demo.href ? (
+                    <Link href={demo.href} className="hover:text-accent">
+                      {demo.title}
+                    </Link>
+                  ) : (
+                    demo.title
+                  )}
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed text-ink text-pretty">
                   {demo.problem}

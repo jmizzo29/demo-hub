@@ -38,6 +38,9 @@ export function LockedPage({ signedIn = false }: { signedIn?: boolean }) {
           <p className="mt-3 text-base leading-relaxed text-muted">
             Ask John for an invite link.
           </p>
+          <p className="mt-2 text-base leading-relaxed text-ink">
+            Have an invite? Scan your QR code or open your invite link again.
+          </p>
           <a
             href="https://johndavidmitchell.vercel.app"
             target="_blank"
@@ -53,8 +56,8 @@ export function LockedPage({ signedIn = false }: { signedIn?: boolean }) {
           ) : null}
           <RequestAccessForm />
           <p className="mt-8 text-sm text-muted">
-            <a href="/admin/sign-in" className="font-semibold text-accent hover:underline">
-              Admin sign in
+            <a href="/admin/sign-in" className="hover:text-ink hover:underline">
+              John? Admin sign in
             </a>
           </p>
         </div>

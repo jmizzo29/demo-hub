@@ -8,16 +8,16 @@ John David Mitchell's demo hub: a locked set of live demos. Sample data only. Th
 - **Request access.** Optional. It saves a request. Approving it creates an invite link John can copy.
 - **Admin sign-in.** The email in `ADMIN_EMAIL` signs in with a password and an authenticator code. Only that account can create or revoke invites. Google stays off until its keys are set. Passkeys are marked coming soon.
 - **Revoke.** A revoked invite and every session from it stop working immediately. Invites expire in 30 days unless John picks another length.
-- **Hub home.** John's name and title, a plain-English banner, three steps, and nine coming-soon cards.
+- **Hub home.** John's name and title, a plain-English banner, three steps, and nine cards. Demo 1, API and webhook integration, is live. The rest are coming soon.
 - **Every screen** is labeled **Demo - sample data only**.
 
 Without a valid invite session or an admin session, hub routes show a locked page: "This demo hub is private. Ask John for an invite link." There is no guest pass.
 
 ## What is not in this build
 
-- No live demos, and no sample records beyond the card text and access requests you create.
+- The other eight demos are not built yet.
+- Demo 1's integration service is TypeScript for this review. A .NET version is planned next.
 - No passkeys yet.
-- Not deployed.
 
 ## Stack
 
@@ -44,6 +44,7 @@ npm run dev
 | `ADMIN_EMAIL` | Yes | The one email that can approve requests. This account still signs in and uses an authenticator. |
 | `GOOGLE_CLIENT_ID` | No | Google OAuth client id. Leave empty to keep the Google button disabled. |
 | `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret. |
+| `WEBHOOK_SIGNING_SECRET` | No | Secret for the sample webhook in demo 1. If you leave it blank, the app uses the built-in demo value `demo-webhook-secret-not-for-production`. Set your own value before showing this anywhere public. |
 
 `npx auth@latest migrate` creates the Better Auth tables in `DATABASE_URL`. Access requests get their own table the first time someone submits one.
 
