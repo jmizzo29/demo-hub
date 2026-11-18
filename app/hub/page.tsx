@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { isAdminEmail } from "@/lib/access";
 import { HubHome } from "@/components/hub-home";
-import { requireSignedIn } from "@/lib/guard";
+import { requireHubAccess } from "@/lib/guard";
 
 export const instant = false;
 
@@ -12,6 +11,6 @@ export const metadata: Metadata = {
 };
 
 export default async function HubPage() {
-  const session = await requireSignedIn();
-  return <HubHome isAdmin={isAdminEmail(session.user.email)} />;
+  const access = await requireHubAccess();
+  return <HubHome isAdmin={access.kind === "admin"} />;
 }

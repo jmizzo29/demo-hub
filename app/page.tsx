@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { SignInFlow } from "@/components/sign-in-flow";
+import { LockedPage } from "@/components/locked-page";
+import { adminSession, inviteSession } from "@/lib/guard";
+
+export const instant = false;
 
 export const metadata: Metadata = {
-  title: "Sign in",
-  description:
-    "Sign in to John David Mitchell's demo hub. Approved access and a second factor are required.",
+  title: "Private demo hub",
+  description: "This demo hub is private. Ask John for an invite link.",
 };
 
-export default function HomePage() {
-  return <SignInFlow />;
+export default async function HomePage() {
+  const signedIn = Boolean((await adminSession()) || (await inviteSession()));
+  return <LockedPage signedIn={signedIn} />;
 }

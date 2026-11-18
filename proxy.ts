@@ -1,30 +1,47 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isAdminEmail } from "@/lib/access";
-import { auth } from "@/lib/auth";
+import { adminSessionFromRequest, inviteCookieFromRequest } from "@/lib/session-request";
 
-const PUBLIC_PATHS = new Set(["/", "/api/sign-in", "/api/access-request", "/api/gate"]);
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/admin/sign-in",
+  "/api/sign-in",
+  "/api/access-request",
+  "/api/gate",
+  "/api/invite-session",
+]);
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (
     pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/invite/") ||
     pathname.startsWith("/_next") ||
     PUBLIC_PATHS.has(pathname)
   ) {
     return NextResponse.next();
   }
 
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session?.user.twoFactorEnabled) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    url.search = session ? "enroll=1" : "";
-    return NextResponse.redirect(url);
+  const admin = await adminSessionFromRequest(request);
+  const invite = admin ? false : await inviteCookieFromRequest(request);
+
+  if (pathname.startsWith("/api/admin")) {
+    if (!admin) return NextResponse.json({ error: "Admin only." }, { status: 401 });
+    return NextResponse.next();
   }
 
-  if (pathname.startsWith("/admin") && !isAdminEmail(session.user.email)) {
+  if (pathname.startsWith("/admin")) {
+    if (!admin) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/sign-in";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
+  if (!admin && !invite) {
     const url = request.nextUrl.clone();
-    url.pathname = "/hub";
+    url.pathname = "/";
     url.search = "";
     return NextResponse.redirect(url);
   }

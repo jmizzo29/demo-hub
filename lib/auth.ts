@@ -5,7 +5,7 @@ import { generateRandomString } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { twoFactor } from "better-auth/plugins";
 import { Pool } from "pg";
-import { isApproved } from "@/lib/access";
+import { isAdminEmail } from "@/lib/access";
 
 const secret = process.env.BETTER_AUTH_SECRET;
 const baseURL = process.env.BETTER_AUTH_URL;
@@ -53,10 +53,9 @@ export const auth = betterAuth({
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path !== "/sign-in/email" && ctx.path !== "/sign-up/email") return;
       const email = String(ctx.body?.email ?? "");
-      if (!(await isApproved(email))) {
+      if (!isAdminEmail(email)) {
         throw new APIError("FORBIDDEN", {
-          message:
-            "This email does not have access yet. Request access and wait for approval.",
+          message: "This sign-in is for the admin only.",
         });
       }
     }),
@@ -64,7 +63,7 @@ export const auth = betterAuth({
       if (!ctx.path?.startsWith("/callback/")) return;
       const data = ctx.context.newSession;
       if (!data) return;
-      if (!(await isApproved(data.user.email))) {
+      if (!isAdminEmail(data.user.email)) {
         deleteSessionCookie(ctx, true);
         await ctx.context.internalAdapter.deleteSession(data.session.token);
         throw ctx.redirect(new URL("/", ctx.context.baseURL).toString() + "?error=access");

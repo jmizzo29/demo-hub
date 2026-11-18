@@ -43,36 +43,46 @@ export async function displayNameFor(email: string) {
 export type AccessRequest = {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
+  company: string | null;
   note: string | null;
   createdAt: string;
 };
 
 export async function createAccessRequest(input: {
   name: string;
-  email: string;
-  note: string;
+  email?: string;
+  company?: string;
+  note?: string;
 }) {
-  const email = input.email.trim().toLowerCase();
+  const email = input.email?.trim().toLowerCase() || null;
   const name = input.name.trim();
   await ensureAccessTable();
-  if (isAdminEmail(email) || (await isApproved(email))) {
-    return { ok: false as const, error: "This email already has access. Sign in." };
+  if (email && (isAdminEmail(email) || (await isApproved(email)))) {
+    return { ok: false as const, error: "This email already has access." };
   }
-  const waiting = await pool.query(
-    `SELECT 1
-     FROM access_request
-     WHERE lower(email) = $1 AND status = 'pending'
-     LIMIT 1`,
-    [email],
-  );
-  if (waiting.rowCount) {
-    return { ok: false as const, error: "A request for this email is already waiting." };
+  if (email) {
+    const waiting = await pool.query(
+      `SELECT 1
+       FROM access_request
+       WHERE lower(email) = $1 AND status = 'pending'
+       LIMIT 1`,
+      [email],
+    );
+    if (waiting.rowCount) {
+      return { ok: false as const, error: "A request for this email is already waiting." };
+    }
   }
   await pool.query(
-    `INSERT INTO access_request (id, name, email, note)
-     VALUES ($1, $2, $3, $4)`,
-    [randomUUID(), name, email, input.note.trim() || null],
+    `INSERT INTO access_request (id, name, email, company, note)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [
+      randomUUID(),
+      name,
+      email,
+      input.company?.trim() || null,
+      input.note?.trim() || null,
+    ],
   );
   return { ok: true as const };
 }
@@ -82,11 +92,12 @@ export async function listPendingRequests() {
   const found = await pool.query<{
     id: string;
     name: string;
-    email: string;
+    email: string | null;
+    company: string | null;
     note: string | null;
     created_at: Date;
   }>(
-    `SELECT id, name, email, note, created_at
+    `SELECT id, name, email, company, note, created_at
      FROM access_request
      WHERE status = 'pending'
      ORDER BY created_at ASC`,
@@ -95,9 +106,26 @@ export async function listPendingRequests() {
     id: row.id,
     name: row.name,
     email: row.email,
+    company: row.company,
     note: row.note,
     createdAt: row.created_at.toISOString(),
   }));
+}
+
+export async function getPendingRequest(id: string) {
+  await ensureAccessTable();
+  const found = await pool.query<{
+    id: string;
+    name: string;
+    company: string | null;
+    note: string | null;
+  }>(
+    `SELECT id, name, company, note
+     FROM access_request
+     WHERE id = $1 AND status = 'pending'`,
+    [id],
+  );
+  return found.rows[0] ?? null;
 }
 
 export async function decideRequest(id: string, status: "approved" | "denied") {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { APIError } from "better-auth/api";
-import { displayNameFor, isApproved } from "@/lib/access";
+import { displayNameFor, isAdminEmail } from "@/lib/access";
 import { auth } from "@/lib/auth";
 import { pool } from "@/lib/db";
 
@@ -25,12 +25,9 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  if (!(await isApproved(email))) {
+  if (!isAdminEmail(email)) {
     return NextResponse.json(
-      {
-        error:
-          "This email does not have access yet. Request access and wait for approval.",
-      },
+      { error: "This sign-in is for the admin only." },
       { status: 403 },
     );
   }

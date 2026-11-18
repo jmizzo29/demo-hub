@@ -4,14 +4,14 @@ John David Mitchell's demo hub: a locked set of live demos. Sample data only. Th
 
 ## What you can do
 
-- **Request access.** The form saves a pending request. That person stays out until an admin approves it.
-- **Sign in.** Approved email and a password. The first sign-in chooses the password. Google is wired, and stays off until `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set. Passkeys are marked coming soon.
-- **Authenticator.** The first sign-in asks you to scan a QR code. Every later sign-in asks for the 6-digit code. The hub does not open without it.
-- **Admin.** The email in `ADMIN_EMAIL` can open Access requests, then approve or deny. That page also requires the authenticator code.
+- **Visitors use a personal invite link.** No password and no authenticator. John creates the invite, and the app shows a long random link and a QR code once. Opening the link sets a signed session cookie and opens the hub. The database stores only a hash of the token.
+- **Request access.** Optional. It saves a request. Approving it creates an invite link John can copy.
+- **Admin sign-in.** The email in `ADMIN_EMAIL` signs in with a password and an authenticator code. Only that account can create or revoke invites. Google stays off until its keys are set. Passkeys are marked coming soon.
+- **Revoke.** A revoked invite and every session from it stop working immediately. Invites expire in 30 days unless John picks another length.
 - **Hub home.** John's name and title, a plain-English banner, three steps, and nine coming-soon cards.
 - **Every screen** is labeled **Demo - sample data only**.
 
-A direct visit to `/hub` or `/admin` without an approved, signed-in user who has passed the authenticator step is sent back to sign-in. There is no guest pass.
+Without a valid invite session or an admin session, hub routes show a locked page: "This demo hub is private. Ask John for an invite link." There is no guest pass.
 
 ## What is not in this build
 
@@ -47,4 +47,4 @@ npm run dev
 
 `npx auth@latest migrate` creates the Better Auth tables in `DATABASE_URL`. Access requests get their own table the first time someone submits one.
 
-Sign in once as `ADMIN_EMAIL`, scan the authenticator QR code, then open **Access** on the hub to approve other people. Email sending is not required: sign-in is the email plus the password chosen on first use.
+Sign in once at `/admin/sign-in` as `ADMIN_EMAIL` and scan the authenticator code. After that, open **Access** on the hub to create invite links. Visitors do not need email sending, a password, or an authenticator.

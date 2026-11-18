@@ -7,15 +7,13 @@ export function SignOutButton() {
     <button
       type="button"
       onClick={() => {
-        void authClient.signOut({
-          fetchOptions: {
-            onSuccess: () => {
-              // A full load so the signed-out page does not reuse the hub session.
-              // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- session cookie is cleared first
-              window.location.assign("/");
-            },
-          },
-        });
+        void (async () => {
+          await fetch("/api/invite-session", { method: "DELETE" });
+          await authClient.signOut();
+          // A full load so the next page does not reuse a session.
+          // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- cookies are cleared first
+          window.location.assign("/");
+        })();
       }}
       className="h-10 shrink-0 rounded-lg px-3 text-sm font-semibold text-accent hover:bg-tint"
     >
