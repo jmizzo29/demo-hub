@@ -60,6 +60,20 @@ export default async function ApiWebhookPage() {
         <div className="mt-8">
           <ApiWebhookDemo />
         </div>
+        <nav className="mt-10 flex flex-col gap-3 border-t border-line pt-6 sm:flex-row sm:justify-between">
+          <Link
+            href="/hub"
+            className="inline-flex h-12 items-center justify-center rounded-xl border border-line bg-white px-5 text-sm font-semibold text-ink hover:bg-soft"
+          >
+            Back to hub
+          </Link>
+          <Link
+            href="/hub/demos/cloud-data-pipeline"
+            className="inline-flex h-12 items-center justify-center rounded-xl border border-line bg-white px-5 text-sm font-semibold text-ink hover:bg-soft"
+          >
+            Next demo
+          </Link>
+        </nav>
       </main>
     </div>
   );
